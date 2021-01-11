@@ -1,10 +1,19 @@
 #!/bin/bash
-#Script hacked up by Sean Shuping for MAAS enrollment
-#references:
+# Script hacked up by Sean Shuping for MAAS enrollment
+# references:
+# https://maas.io/docs/commissioning-and-hardware-testing-scripts#heading--metadata-fields
 # https://phoenixnap.com/kb/how-to-set-up-hardware-raid-megacli
 # http://erikimh.com/megacli-cheatsheet/
-#Download and install LSI MegaRAID Megacli
-#Install alien, unzip and libncurses5 to convert rpm package to deb
+# Download and install LSI MegaRAID Megacli
+# Install alien, unzip and libncurses5 to convert rpm package to deb
+#
+# --- Start MAAS 1.0 script metadata ---
+# name: 00-b-User-MegaRAID_single_RAID0.sh
+# title: User script - MegaRAID Single RAID 0 
+# description: This script creates RAID 0 volume on all physical disks on MegaRAID controller
+# destructive: true
+# script_type: commissioning 
+# --- End MAAS 1.0 script metadata ---
 
 if lspci | grep -q MegaRAID
 then 

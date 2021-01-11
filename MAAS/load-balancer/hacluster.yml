@@ -1,0 +1,95 @@
+---
+- name: Setup and configure pacemaker cluster
+  hosts: all
+  vars:
+    cluster_name: maas-lb-cluster
+    cluster_vip: 192.168.50.5
+    hacluster_username: hacluster
+    # ansible-vault encrypt_string 'P455W0rd#' --name hacluster_password
+    secret: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          63363430373065346437653838303133393761636636343439316266373133363863643435633132
+          3533323834313064356239636539333765613134386430370a313639353632373135653066663833
+          38373336646261613936323835353136303138323731346663386335336534626130393733303061
+          6336663930366434640a323833376462663938323335316337336661616463346239303533376638
+          32666364386237663738363130393764363062333536383734663435666634333831303034366437
+          3935323536386364623639333865393130633137366462633533
+
+  tasks:
+
+  - name: Install required packages on all hosts
+    yum:
+     name: 
+     - corosync 
+     - pacemaker 
+     - pcs
+     state: present
+    when: ansible_distribution == 'CentOS'
+
+  - name: Ensure local Firewall is stopped and disabled
+    service: 
+     name: firewalld
+     enabled: no
+     state: stopped
+
+  - name: Ensure Services are enabled but not started
+    service: 
+     name: "{{ item }}"
+     enabled: yes
+     state: stopped
+    with_items: 
+    - pcsd
+    - corosync
+    - pacemaker
+
+  - name: Startup pcsd service
+    service: 
+     name: "{{ item }}"
+     enabled: yes
+     state: started
+    with_items: 
+    - pcsd
+
+  - name: Manage hacluster user password before initializing cluster
+    #Simplest way to encode a password is as follows:
+    #ansible all -i localhost, -m debug -a "msg={{ 'P455W0rd#' | password_hash('sha512', 'mysecretsalt') }}"
+    #ref: https://docs.ansible.com/ansible/latest/reference_appendices/faq.html#how-do-i-generate-encrypted-passwords-for-the-user-module
+    user: 
+     name: "{{ hacluster_username }}"
+     password: "$6$mysecretsalt$fn0/TNtQNjk6uS/qB1U.xiduP2xT82KYK6H8gqXIawqEY1hUOp2TI7SvBzF3k/fUgw1zqNXVtT1m5HoRIdBgv1"
+  
+  - name: Authenticate cluster nodes
+    command: pcs cluster auth -u "{{ hacluster_username }}" -p "{{ hacluster_password }}" lb-0.lab.devzero.home lb-1.lab.devzero.home lb-2.lab.devzero.home
+    when: inventory_hostname in groups['bootstrap']
+ 
+  - name: Initialize cluster 
+    command: pcs cluster setup --name "{{ cluster_name }}" -u "{{ hacluster_username }}" -p "{{ hacluster_password }}" lb-0.lab.devzero.home lb-1.lab.devzero.home lb-2.lab.devzero.home
+    when: inventory_hostname in groups['bootstrap'] 
+
+  - name: Start cluster services
+    command: "{{ item }}"
+    with_items:
+      - pcs cluster start --all
+      - pcs cluster enable --all
+    when: inventory_hostname in groups['bootstrap']
+
+  - name: Get cluster status and register the output
+    command: pcs status cluster
+    when: inventory_hostname in groups['bootstrap']
+    register: pcs_cluster_status
+
+  - debug:
+     var: pcs_cluster_status  
+
+  - name: Disable STONITH and ignore the Quorum policy because we're cowboys like that
+    command: "{{ item }}"
+    with_items:
+      - pcs property set stonith-enabled=false
+      - pcs property set no-quorum-policy=ignore
+    when: inventory_hostname in groups['bootstrap']
+
+  - name: Manage the floating IP of our cluster
+    command: "{{ item }}"
+    with_items:
+      - pcs resource create virtual_ip ocf:heartbeat:IPaddr2 ip="{{ cluster_vip }}" cidr_netmask=32 op monitor interval=30s
+    when: inventory_hostname in groups['bootstrap']

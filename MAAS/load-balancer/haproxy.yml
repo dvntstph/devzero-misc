@@ -1,0 +1,101 @@
+---
+#https://www.howtoforge.com/tutorial/how-to-setup-haproxy-as-load-balancer-for-nginx-on-centos-7/
+
+- name: Setup and configure haproxy
+  hosts: all
+
+  tasks:
+
+  - name: Upgrade all packages to the latest version
+    apt:
+     update_cache: yes
+     name: "*"
+     state: latest
+    when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+  - name: Upgrade all packages to the latest version
+    yum:
+     name: "*"
+     state: latest
+    when: ansible_distribution == 'CentOS' or ansible_distribution == 'Fedora'
+
+  - name: Relax SELINUX on rhel based hosts to allow haproxy to connect to target on port 5240
+    community.general.seport:
+     ports: 5240
+     proto: tcp
+     setype: http_port_t
+     state: present
+    when: ansible_distribution == 'CentOS' or ansible_distribution == 'Fedora'
+
+  - name: Install required packages on targets as needed
+    apt:
+     name: haproxy  
+     state: latest
+    when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+  - name: Install required packages on targets as needed
+    yum:
+     name: haproxy  
+     state: latest
+    when: ansible_distribution == 'CentOS'
+
+  - name: Check if previous tasks have alrady backed up haproxy.conf
+    stat: path=/etc/haproxy/haproxy.cfg.default
+    register: haproxy_exist
+
+  - name: Backup the original haproxy.conf file
+    copy:
+     src: /etc/haproxy/haproxy.cfg
+     dest: /etc/haproxy/haproxy.cfg.default
+     remote_src: yes
+    when: not haproxy_exist.stat.exists
+
+  - name: Overwrite the existing haproxy.conf file
+    copy:
+     src: config/haproxy.conf
+     dest: /etc/haproxy/haproxy.cfg
+     follow: yes
+
+  - name: Configure $ModLoad imudp in rsyslog for HAProxy statistics
+    lineinfile:
+     dest: /etc/rsyslog.conf
+     state: present 
+     regexp: '^$ModLoad imudp'
+     line: '$ModLoad imudp'
+
+  - name: Configure $UDPServerRun 514 imudp in rsyslog for HAProxy statistics
+    lineinfile:
+     dest: /etc/rsyslog.conf
+     state: present 
+     regexp: '^$UDPServerRun 514'
+     line: '$UDPServerRun 514'
+
+  - name: Ensure /etc/rsyslog.d/haproxy.conf exists
+    file:
+     path: /etc/rsyslog.d/haproxy.conf
+     state: touch
+     owner: root
+     group: root
+
+  - name: Ensure haproxy-access.log configuration exists
+    lineinfile:
+     dest: /etc/rsyslog.d/haproxy.conf
+     state: present 
+     regexp: '^local2.=info     /var/log/haproxy-access.log    #For Access Log'
+     line: 'local2.=info     /var/log/haproxy-access.log    #For Access Log'
+
+  - name: Ensure haproxy-access.log configuration exists
+    lineinfile:
+     dest: /etc/rsyslog.d/haproxy.conf
+     state: present 
+     regexp: '^local2.notice    /var/log/haproxy-info.log      #For Service Info - Backend, loadbalancer'
+     line: 'local2.notice    /var/log/haproxy-info.log      #For Service Info - Backend, loadbalancer'
+
+  - name: Ensure haproxy and rsyslog service is running
+    service:
+     enabled: yes
+     name: "{{ item }}"
+     state: restarted
+    with_items:
+     - haproxy
+     - rsyslog
