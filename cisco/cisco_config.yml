@@ -15,6 +15,9 @@
   - name: Merge playbook config with device config
     ios_vlans:
      config: 
+     - name: VLAN49
+       vlan_id: 49
+       shutdown: disabled
      - name: VLAN50
        vlan_id: 50
        shutdown: disabled
@@ -34,17 +37,25 @@
        vlan_id: 55
        shutdown: disabled
 
-  - name: Ensure GigabitEthernet0-20 is configured as trunk with allowed vlan 50-55 and set native to 50
+  - name: Ensure interface is configured as trunk with allowed vlans and native to vlan
+    ios_l2_interface:
+     name: "{{ item }}"
+     mode: trunk
+     native_vlan: "49"
+     trunk_allowed_vlans: "49"
+    with_items :
+    - GigabitEthernet0/1
+    - GigabitEthernet0/2
+    - GigabitEthernet0/3
+    - GigabitEthernet0/4
+
+  - name: Ensure interface is configured as trunk with allowed vlans and native to vlan
     ios_l2_interface:
      name: "{{ item }}"
      mode: trunk
      native_vlan: "50"
      trunk_allowed_vlans: "50-55"
     with_items :
-    - GigabitEthernet0/1
-    - GigabitEthernet0/2
-    - GigabitEthernet0/3
-    - GigabitEthernet0/4
     - GigabitEthernet0/5
     - GigabitEthernet0/6
     - GigabitEthernet0/7
@@ -61,3 +72,19 @@
     - GigabitEthernet0/18
     - GigabitEthernet0/19
     - GigabitEthernet0/20
+
+  - name: Ensure GigabitEthernet21-24 is configured as trunk with allowed vlan 1,50-55 and set native to 1
+    ios_l2_interface:
+     name: "{{ item }}"
+     mode: trunk
+     native_vlan: "1"
+     trunk_allowed_vlans: "1,49-55"
+    with_items :
+    - GigabitEthernet0/21
+    - GigabitEthernet0/22
+    - GigabitEthernet0/23
+    - GigabitEthernet0/24
+
+  - name: save running to startup always
+    ios_config:
+     save_when: always
