@@ -1,0 +1,89 @@
+---
+- name: Add additional node to an existing cluster
+  hosts: all
+  vars:
+    #new_node_name_answer <- will come from survery input
+    #old_node_name_answer <- will come from survery input
+    cluster_name: maas-lb-cluster
+    cluster_vip: 192.168.50.5
+    hacluster_username: hacluster
+    hacluster_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          39303135666233343062623537316364373738616166323364656238663863633863366338626663
+          6131656438363235653165346334333463643434336666310a303863393863643938383237393534
+          35313739353463643763353966316332663937633536303663356430616534613463643635636639
+          3566333533376239360a636135326331633432613061383564386435656263333838326566636235
+          3638
+          
+  tasks:
+
+  - name: Install required packages on all hosts
+    yum:
+     name: 
+     - corosync 
+     - pacemaker 
+     - pcs
+     state: present
+    when: ansible_distribution == 'CentOS'
+
+  - name: Ensure local Firewall is stopped and disabled
+    service: 
+     name: firewalld
+     enabled: no
+     state: stopped
+
+  - name: Ensure Services are enabled but not started
+    service: 
+     name: "{{ item }}"
+     enabled: yes
+     state: stopped
+    with_items: 
+    - pcsd
+    - corosync
+    - pacemaker
+
+  - name: Startup pcsd service
+    service: 
+     name: "{{ item }}"
+     enabled: yes
+     state: started
+    with_items: 
+    - pcsd
+
+  - name: Manage hacluster user password before initializing cluster
+    user: 
+     name: "{{ hacluster_username }}"
+     password: "$6$mysecretsalt$fn0/TNtQNjk6uS/qB1U.xiduP2xT82KYK6H8gqXIawqEY1hUOp2TI7SvBzF3k/fUgw1zqNXVtT1m5HoRIdBgv1"
+  
+  - name: Forcefully remove old cluster member
+    command: pcs cluster node remove "{{ old_node_name_answer }}" --force
+    when: 
+    - old_node_name_answer|length > 0
+    - inventory_hostname in groups['bootstrap']
+
+  - name: Authenticate new cluster node
+    command: pcs cluster auth -u "{{ hacluster_username }}" -p "{{ hacluster_password }}" "{{ new_node_name_answer }}"
+    when: 
+    - new_node_name_answer|length > 0 
+    - inventory_hostname in groups['bootstrap']
+ 
+  - name: Add new cluster node to the existing cluster
+    command: pcs cluster node add "{{ new_node_name_answer }}"
+    when: 
+    - new_node_name_answer|length > 0 
+    - inventory_hostname in groups['bootstrap']
+
+  - name: Start cluster services
+    command: "{{ item }}"
+    with_items:
+      - pcs cluster start --all
+      - pcs cluster enable --all
+    when: inventory_hostname in groups['bootstrap']
+
+  - name: Get cluster status and register the output
+    command: pcs status cluster
+    when: inventory_hostname in groups['bootstrap']
+    register: pcs_cluster_status
+
+  - debug:
+     var: pcs_cluster_status  
