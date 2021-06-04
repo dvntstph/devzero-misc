@@ -4,16 +4,31 @@
 series: focal
 variables:
   openstack-origin: &openstack-origin cloud:focal-wallaby
-  data-port: &data-port br-ex:eno2
+  data-port: &data-port br-ex:bond0
   worker-multiplier: &worker-multiplier 0.25
-  osd-devices: &osd-devices /dev/sdb /dev/vdb
+  osd-devices: &osd-devices /dev/sdb /dev/sdc
   expected-osd-count: &expected-osd-count 3
   expected-mon-count: &expected-mon-count 3
 
 machines:
   '0':
+    series: focal
+    constraints: tags=openstack
   '1':
+    series: focal
+    constraints: tags=openstack
   '2':
+    series: focal
+    constraints: tags=openstack
+  '3':
+    series: focal
+    constraints: tags=openstack
+  '4':
+    series: focal
+    constraints: tags=openstack
+  '5':
+    series: focal
+    constraints: tags=openstack
 
 applications:
 
@@ -27,6 +42,8 @@ applications:
       expected-osd-count: *expected-osd-count
       monitor-count: *expected-mon-count
       source: *openstack-origin
+    bindings:
+      "": admin-network
     to:
     - lxd:0
     - lxd:1
@@ -37,25 +54,56 @@ applications:
       gui-x: '1065'
       gui-y: '1540'
     charm: cs:ceph-osd
-    num_units: 3
+    num_units: 6
     options:
       osd-devices: *osd-devices
       source: *openstack-origin
+    bindings:
+      "": admin-network
     to:
     - '0'
     - '1'
     - '2'
+    - '3'
+    - '4'
+    - '5'
+
+  ceph-radosgw-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 975.2022857666016
+      gui-y: 861.4601440429688
+    bindings: 
+      "": admin-network
 
   ceph-radosgw:
     annotations:
       gui-x: '850'
       gui-y: '900'
     charm: cs:ceph-radosgw
-    num_units: 1
+    num_units: 3
     options:
+      os-admin-hostname: storage.lab.devzero.home
+      os-internal-hostname: storage.lab.devzero.home
+      os-public-hostname: storage.lab.devzero.home
+      vip: 192.168.51.200
       source: *openstack-origin
+    bindings:
+      "": admin-network
     to:
-    - lxd:0
+    - lxd:3
+    - lxd:4
+    - lxd:5
+
+  cinder-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 1097.0257568359375
+      gui-y: 1207.35888671875
+    bindings: 
+      "": admin-network
 
   cinder-mysql-router:
     annotations:
@@ -68,26 +116,47 @@ applications:
       gui-x: '980'
       gui-y: '1270'
     charm: cs:cinder
-    num_units: 1
+    num_units: 3
     options:
+      os-admin-hostname: cinder.lab.devzero.home
+      os-internal-hostname: cinder.lab.devzero.home
+      os-public-hostname: cinder.lab.devzero.home
+      vip: 192.168.51.201
       block-device: None
       glance-api-version: 2
       worker-multiplier: *worker-multiplier
       openstack-origin: *openstack-origin
+    bindings:
+      "": admin-network
     to:
+    - lxd:0
     - lxd:1
+    - lxd:2
 
   cinder-ceph:
     annotations:
       gui-x: '1120'
       gui-y: '1400'
+    bindings:
+      "": admin-network
     charm: cs:cinder-ceph
     num_units: 0
+
+  glance-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: -134.58247900009155
+      gui-y: 1207.35888671875
+    bindings: 
+      "": admin-network
 
   glance-mysql-router:
     annotations:
       gui-x: '-290'
       gui-y: '1400'
+    bindings:
+      "": admin-network
     charm: cs:mysql-router
 
   glance:
@@ -95,110 +164,226 @@ applications:
       gui-x: '-230'
       gui-y: '1270'
     charm: cs:glance
-    num_units: 1
+    num_units: 3
     options:
+      os-admin-hostname: glance.lab.devzero.home
+      os-internal-hostname: glance.lab.devzero.home
+      os-public-hostname: glance.lab.devzero.home
+      vip: 192.168.51.202
       worker-multiplier: *worker-multiplier
       openstack-origin: *openstack-origin
+    bindings:
+      "": admin-network
     to:
-    - lxd:2
+    - lxd:3
+    - lxd:4
+    - lxd:5
+
+  glance-simplestreams-sync:
+    charm: cs:glance-simplestreams-sync
+    num_units: 1
+    options:
+      run: true
+    bindings:
+       "": admin-network
+    to:
+      - 'lxd:5'
+
+  keystone-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 416.79443359375
+      gui-y: 1231.331787109375
+    bindings: 
+      "": admin-network
 
   keystone-mysql-router:
     annotations:
       gui-x: '230'
       gui-y: '1400'
     charm: cs:mysql-router
+    bindings:
+      "": admin-network
 
   keystone:
     annotations:
       gui-x: '300'
       gui-y: '1270'
     charm: cs:keystone
-    num_units: 1
+    num_units: 3
     options:
+      os-admin-hostname: keystone.lab.devzero.home
+      os-internal-hostname: keystone.lab.devzero.home
+      os-public-hostname: keystone.lab.devzero.home
       worker-multiplier: *worker-multiplier
       openstack-origin: *openstack-origin
+      vip: 192.168.51.203
+    bindings:
+      "": admin-network
     to:
-    - lxd:0
+     - lxd:0
+     - lxd:1
+     - lxd:2
+
+  memcached:
+    charm: cs:memcached
+    num_units: 2
+    bindings:
+      "": admin-network
+    series: focal
+    to:
+     - 'lxd:3'
+     - 'lxd:4'
 
   neutron-mysql-router:
     annotations:
       gui-x: '505'
       gui-y: '1385'
     charm: cs:mysql-router
+    bindings:
+      "": admin-network
 
   neutron-api-plugin-ovn:
     annotations:
       gui-x: '690'
       gui-y: '1385'
     charm: cs:neutron-api-plugin-ovn
+    bindings:
+      "": admin-network
+
+  neutron-api-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 689.4863891601562
+      gui-y: 1237.3250732421875
+    bindings: 
+      "": admin-network
 
   neutron-api:
     annotations:
       gui-x: '580'
       gui-y: '1270'
     charm: cs:neutron-api
-    num_units: 1
+    num_units: 3
     options:
+      enable-ml2-port-security: true
+      os-admin-hostname: neutron-api.lab.devzero.home
+      os-internal-hostname: neutron-api.lab.devzero.home
+      os-public-hostname: neutron-api.lab.devzero.home
+      vip: 192.168.51.204
       neutron-security-groups: true
       flat-network-providers: physnet1
       worker-multiplier: *worker-multiplier
       openstack-origin: *openstack-origin
+    bindings:
+      "": admin-network
     to:
-    - lxd:1
+    - lxd:3
+    - lxd:4
+    - lxd:5
+
+  placement-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 1426.066650390625
+      gui-y: 1230.1529541015625
+    bindings: 
+      "": admin-network
 
   placement-mysql-router:
     annotations:
       gui-x: '1320'
       gui-y: '1385'
     charm: cs:mysql-router
+    bindings:
+      "": admin-network
 
   placement:
     annotations:
       gui-x: '1320'
       gui-y: '1270'
     charm: cs:placement
-    num_units: 1
+    num_units: 3
     options:
+      os-admin-hostname: placement.lab.devzero.home
+      os-internal-hostname: placement.lab.devzero.home
+      os-public-hostname: placement.lab.devzero.home
+      vip: 192.168.51.207
       worker-multiplier: *worker-multiplier
       openstack-origin: *openstack-origin
+    bindings:
+      "": admin-network
     to:
+    - lxd:0
+    - lxd:1
     - lxd:2
+
+  nova-cloud-controller-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 147.09925842285156
+      gui-y: 1222.342041015625
+    bindings: 
+      "": admin-network
 
   nova-mysql-router:
     annotations:
       gui-x: '-30'
       gui-y: '1385'
     charm: cs:mysql-router
+    bindings:
+      "": admin-network
 
   nova-cloud-controller:
     annotations:
       gui-x: '35'
       gui-y: '1270'
     charm: cs:nova-cloud-controller
-    num_units: 1
+    num_units: 3
     options:
+      console-access-protocol: spice
+      os-admin-hostname: compute.lab.devzero.home
+      os-internal-hostname: compute.lab.devzero.home
+      os-public-hostname: compute.lab.devzero.home
+      vip: 192.168.51.205
       network-manager: Neutron
       worker-multiplier: *worker-multiplier
       openstack-origin: *openstack-origin
+    bindings: 
+      "": admin-network
     to:
     - lxd:0
+    - lxd:1
+    - lxd:2
 
   nova-compute:
     annotations:
       gui-x: '190'
       gui-y: '890'
     charm: cs:nova-compute
-    num_units: 3
+    num_units: 6
     options:
+      customize-failure-domain: true
+      libvirt-image-backend: rbd
+      rbd-pool: cinder-ceph
       config-flags: default_ephemeral_format=ext4
       enable-live-migration: true
       enable-resize: true
       migration-auth-type: ssh
       openstack-origin: *openstack-origin
+    bindings:
+      "": admin-network
     to:
     - '0'
     - '1'
     - '2'
+    - '3'
+    - '4'
+    - '5'
 
   ntp:
     annotations:
@@ -206,32 +391,60 @@ applications:
       gui-y: '1030'
     charm: cs:ntp
     num_units: 0
+    bindings:
+      "": admin-network
+
+  openstack-dashboard-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+      gui-x: 686.48974609375
+      gui-y: 856.7550659179688
+    bindings: 
+      "": admin-network
 
   openstack-dashboard-mysql-router:
     annotations:
       gui-x: '510'
       gui-y: '1030'
     charm: cs:mysql-router
+    bindings:
+      "": admin-network
 
   openstack-dashboard:
     annotations:
       gui-x: '585'
       gui-y: '900'
     charm: cs:openstack-dashboard
-    num_units: 1
+    num_units: 3
     options:
+      default-theme: default
+      default-create-volume: no
+      enforce-ssl: true
+      os-public-hostname: openstack.lab.devzero.home
       openstack-origin: *openstack-origin
+      password-retrieve: true
+      vip: 192.168.51.206
+      # ubuntu-theme: no
+    bindings:
+      "": admin-network
     to:
-    - lxd:1
+    - lxd:3
+    - lxd:4
+    - lxd:5
 
   rabbitmq-server:
     annotations:
       gui-x: '300'
       gui-y: '1550'
     charm: cs:rabbitmq-server
-    num_units: 1
+    num_units: 3
+    bindings:
+      "": admin-network
     to:
-    - lxd:2
+    - lxd:3
+    - lxd:4
+    - lxd:5
 
   mysql-innodb-cluster:
     annotations:
@@ -239,6 +452,8 @@ applications:
       gui-y: '1550'
     charm: cs:mysql-innodb-cluster
     num_units: 3
+    bindings:
+      "": admin-network
     to:
     - lxd:0
     - lxd:1
@@ -252,37 +467,56 @@ applications:
     num_units: 3
     options:
       source: *openstack-origin
+    bindings:
+      "": admin-network
     to:
-    - lxd:0
-    - lxd:1
-    - lxd:2
+    - lxd:3
+    - lxd:4
+    - lxd:5
 
   ovn-chassis:
     annotations:
       gui-x: '120'
       gui-y: '1030'
     charm: cs:ovn-chassis
-    # Please update the `bridge-interface-mappings` to values suitable for the
-    # hardware used in your deployment. See the referenced documentation at the
-    # top of this file.
+    # *** Please update the `bridge-interface-mappings` to values suitable ***
+    # *** for the hardware used in your deployment. See the referenced     ***
+    # *** documentation at the top of this file.                           ***
     options:
       ovn-bridge-mappings: physnet1:br-ex
       bridge-interface-mappings: *data-port
+    bindings:
+      "": admin-network
+
+  vault-hacluster:
+    charm: 'cs:hacluster'
+    series: focal
+    annotations:
+    bindings: 
+      "": admin-network
 
   vault-mysql-router:
     annotations:
       gui-x: '1535'
       gui-y: '1560'
     charm: cs:mysql-router
+    bindings:
+      "": admin-network
 
   vault:
     annotations:
       gui-x: '1610'
       gui-y: '1430'
     charm: cs:vault
-    num_units: 1
+    num_units: 3
+    bindings:
+      "": admin-network
+    options:
+      vip: 192.168.51.208
     to:
     - lxd:0
+    - lxd:1
+    - lxd:2
 
 relations:
 - - nova-compute:amqp
@@ -307,6 +541,8 @@ relations:
   - rabbitmq-server:amqp
 - - openstack-dashboard:identity-service
   - keystone:identity-service
+- - openstack-dashboard-hacluster:ha
+  - openstack-dashboard:ha
 - - nova-cloud-controller:neutron-api
   - neutron-api:neutron-api
 - - cinder:image-service
@@ -373,6 +609,8 @@ relations:
   - mysql-innodb-cluster:db-router
 - - neutron-api-plugin-ovn:neutron-plugin
   - neutron-api:neutron-plugin-api-subordinate
+- - neutron-api-hacluster:ha
+  - neutron-api:ha
 - - ovn-central:certificates
   - vault:certificates
 - - ovn-central:ovsdb-cms
@@ -403,3 +641,23 @@ relations:
   - ceph-radosgw:certificates
 - - vault:certificates
   - mysql-innodb-cluster:certificates
+- - keystone-hacluster:ha
+  - keystone:ha
+- - glance-simplestreams-sync:certificates
+  - vault:certificates
+- - glance-simplestreams-sync:identity-service
+  - keystone:identity-service
+- - nova-cloud-controller-hacluster:ha
+  - nova-cloud-controller:ha
+- - nova-cloud-controller:memcache
+  - memcached:cache
+- - ceph-radosgw-hacluster:ha
+  - ceph-radosgw:ha
+- - cinder-hacluster:ha
+  - cinder:ha
+- - glance-hacluster:ha
+  - glance:ha
+- - placement-hacluster:ha
+  - placement:ha
+- - vault-hacluster:ha
+  - vault:ha
