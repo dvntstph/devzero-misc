@@ -1,0 +1,51 @@
+# This is the network config written by 'subiquity'
+network:
+  ethernets:
+    enp0s25:
+      addresses:
+      - 192.168.50.10/24
+      gateway4: 192.168.50.1
+      nameservers:
+        addresses:
+        - 192.168.0.3
+        search:
+        - lab.devzero.home
+  version: 2
+  vlans:
+    enp0s25.49:
+      addresses:
+      - 192.168.49.10/24
+      id: 49
+      link: enp0s25
+      nameservers: {}
+    enp0s25.51:
+      addresses:
+      - 192.168.51.10/24
+      id: 51
+      link: enp0s25
+      nameservers: {}
+    enp0s25.52:
+      addresses:
+      - 192.168.52.10/24
+      id: 52
+      link: enp0s25
+      nameservers: {}
+    enp0s25.53:
+      addresses:
+      - 192.168.53.10/24
+      id: 53
+      link: enp0s25
+      nameservers: {}
+    enp0s25.54:
+      addresses:
+      - 192.168.54.10/24
+      id: 54
+      link: enp0s25
+      nameservers: {}
+    enp0s25.55:
+      addresses:
+      - 192.168.55.10/24
+      id: 55
+      link: enp0s25
+      nameservers: {}
+
